@@ -1,5 +1,7 @@
 #include <stdlib.h>
 #include <stdio.h>
+#include <math.h>
+#include <string.h>
 #include "cbmp.h"
 
 // Constants
@@ -480,27 +482,100 @@ void toBinary(unsigned char input_image[BMP_WIDTH][BMP_HEIGTH], unsigned char ou
     }
 }
 
+double eucDist(int x0, int y0, int x1, int y1){
+    double distance;
+	distance=sqrt(pow(x1-x0,2)+pow(y1-y0,2));
+	return distance;
+}
+
+void watershed(unsigned char input_image[BMP_WIDTH][BMP_HEIGTH], double output_image[BMP_WIDTH][BMP_HEIGTH]){
+    int zero_loc[2500][2] = {0}, count = 0; double lowEucDist = 1000, dist = 0; 
+    for (int x = 0; x < BMP_WIDTH; x++){
+        for (int y = 0; y < BMP_HEIGTH; y++){
+            if (input_image[x][y] > 120){
+                count = 0;
+                for (int x2 = x - 25; x2 < x + 26; x2++){
+                    for (int y2 = y - 25; y2 < y + 26; y2++){
+                        if (input_image[x2][y2] < 120) {
+                            zero_loc[count][0] = x2;
+                            zero_loc[count][1] = y2;
+                            count++;
+                        }
+                    }
+                }
+                lowEucDist = 1000;
+                for (int i = 0; i < count; i++){
+                    dist = eucDist(zero_loc[i][0], zero_loc[i][1], x, y);
+                    if (dist < lowEucDist) lowEucDist = dist;
+                }
+                output_image[x][y] = 255 - lowEucDist*8;
+            } else {
+                output_image[x][y] = 255;
+            }
+            //printf("x: %d y: %d count: %d\n", x, y, count);
+        }
+        if (x % 10 == 0) printf("x: %d \n", x);
+    }
+}
+
+void localMax(double input_image[BMP_WIDTH][BMP_HEIGTH], unsigned int coord_out[100000][2]){
+    int count = 0; int smallest = 0;
+    for (int x = 1; x < BMP_WIDTH-1; x++){
+        for (int y = 1; y < BMP_HEIGTH-1; y++){
+            if (input_image[x][y] < 250){
+                smallest = 0;
+                for (int xx = x - 4; xx < x + 5; xx++){
+                    for (int yy = y - 4; yy < y + 5; yy++){
+                        if( input_image[xx][yy] < input_image[x][y]) smallest = 1;
+                    }
+                }
+                if (smallest == 0){
+                    coord_out[count][0] = x;
+                    coord_out[count][1] = y;
+                    count++;
+                }
+            }
+        }
+    }
+}
+
+void makeMask(unsigned int coord_in[100000][2], unsigned char output_image[BMP_WIDTH][BMP_HEIGTH]){
+    for (int i = 0; i < 100000; i++)
+    {
+        if (coord_in[i][0] != 0 && coord_in[i][1] != 0) output_image[coord_in[i][0]][coord_in[i][1]] = 255;
+    }
+    
+}
+
 //Function to converts pixels of an image to gray
 int erosion(unsigned char input_image[BMP_WIDTH][BMP_HEIGTH], unsigned char output_image[BMP_WIDTH][BMP_HEIGTH]){
-    int check = 0;
+    int check = 0; int found = 0; int area[7][7] = {0}; int weight[7][7] = {0}; int sum = 0; unsigned char temp[BMP_WIDTH][BMP_HEIGTH];
     for (int x = 0; x < BMP_WIDTH; x++)
     {
         for (int y = 0; y < BMP_HEIGTH; y++)
         {
-            if ((input_image[x][y-1] < 120) || (input_image[x][y+1] < 120) || (input_image[x+1][y] < 120) || (input_image[x-1][y] < 120) || x == 0 || y == 0 || y == BMP_HEIGTH-1 || x == BMP_WIDTH-1)
-            {
-                output_image[x][y] = 0;
+            if (input_image[x][y] > 120) {
+                if (input_image[x][y+1] > 120 && input_image[x][y-1] > 120 && input_image[x+1][y] > 120 && input_image[x-1][y] > 120){
+                    temp[x][y] = 0;
+                } else {
+                    temp[x][y] = 255;
+                }
             } else {
-                output_image[x][y] = 255;
-                check = 1;
+                temp[x][y] = 0;
             }
         }
     }
-    if (check == 0){
-        return 0;
-    } else {
-        return 1;
+    for (int x = 0; x < BMP_WIDTH; x++){
+        for (int y = 0; y < BMP_HEIGTH; y++){
+            if (input_image[x][y] > 120 && temp[x][y] > 120){
+                output_image[x][y] = 0;
+                check = 1;
+            } else {
+                output_image[x][y] = input_image[x][y];
+            }
+        }
     }
+    return check;
 }
 
 //Function to converts pixels of an image to gray
@@ -513,39 +588,29 @@ int detect(unsigned char input_image[BMP_WIDTH][BMP_HEIGTH], unsigned char outpu
             output_image[x][y] = input_image[x][y];
         }
     }
-    for (int x = 0; x < BMP_WIDTH - cap_area - 2; x++)
+    for (int x = 0; x < BMP_WIDTH; x++)
     {
-        for (int y = 0; y < BMP_HEIGTH - cap_area - 2; y++)
+        for (int y = 0; y < BMP_HEIGTH; y++)
         {
             spot = 0; exc = 0;
-            for (int xx = x; xx < x + cap_area + 2; xx++)
-            {
-                for (int yy = y; yy < y + cap_area + 2; yy++)
+            if (input_image[x][y] > 230){
+                spot = 1;
+                for (int xx = x - cap_area/2; xx < x + cap_area/2 + 1; xx++)
                 {
-                    if (input_image[xx][yy] > 230)
+                    for (int yy = y - cap_area/2; yy < y + cap_area/2 + 1; yy++)
                     {
-                        spot = 1;
-                        if (xx == x || xx == x + cap_area + 1 || yy == y || yy == y + cap_area + 1) {
-                            exc = 1;
-                        }
+                        input_image[xx][yy] = 0;
+                        output_image[xx][yy] = 0;
                     }
                 }
             }
-            if (spot == 1 && exc == 0){
+            if (spot == 1){
                 //printf("Found a spot!\n");
-                coord_array[count][0] = x + 6;
-                coord_array[count][1] = y + 6;
+                coord_array[count][0] = x;
+                coord_array[count][1] = y;
                 //printf("x: %d, y: %d, i: %d\n", x + 6, y + 6, count);
                 count++;
                 spots_found++;
-                for (int xx = x; xx < x + cap_area + 2; xx++)
-                {
-                    for (int yy = y; yy < y + cap_area + 2; yy++)
-                    {
-                        output_image[xx][yy] = 0;
-                        input_image[xx][yy] = 0;
-                    }
-                }
             }
         }
     }
