@@ -15,12 +15,11 @@ void write_gray_bitmap(unsigned char input_image_array[BMP_WIDTH][BMP_HEIGTH], c
 void invert(unsigned char input_image[BMP_WIDTH][BMP_HEIGTH][BMP_CHANNELS], unsigned char output_image[BMP_WIDTH][BMP_HEIGTH][BMP_CHANNELS]);
 void toGray(unsigned char input_image[BMP_WIDTH][BMP_HEIGTH][BMP_CHANNELS], unsigned char output_image[BMP_WIDTH][BMP_HEIGTH]);
 void toBinary(unsigned char input_image[BMP_WIDTH][BMP_HEIGTH], unsigned char output_image[BMP_WIDTH][BMP_HEIGTH], int thresh);
-int erosion(unsigned char input_image[BMP_WIDTH][BMP_HEIGTH], unsigned char output_image[BMP_WIDTH][BMP_HEIGTH]);
 int detect(unsigned char input_image[BMP_WIDTH][BMP_HEIGTH], unsigned char output_image[BMP_WIDTH][BMP_HEIGTH], int cap_area, unsigned int coord_array[1000][2], int count);
 void final_image(unsigned char output_image[BMP_WIDTH][BMP_HEIGTH][BMP_CHANNELS], unsigned int coord_array[1000][2]);
-int findCircle(unsigned char input_image[BMP_WIDTH][BMP_HEIGTH]);
 void watershed(unsigned char input_image[BMP_WIDTH][BMP_HEIGTH], double output_image[BMP_WIDTH][BMP_HEIGTH]);
 void localMax(double input_image[BMP_WIDTH][BMP_HEIGTH], unsigned int coord_out[100000][2]);
 void makeMask(unsigned int coord_in[100000][2], unsigned char output_image[BMP_WIDTH][BMP_HEIGTH]);
+int otsu(unsigned char input_image[BMP_WIDTH][BMP_HEIGTH]);
 
 #endif // CBMP_CBMP_H
