@@ -466,8 +466,93 @@ void toGray(unsigned char input_image[BMP_WIDTH][BMP_HEIGTH][BMP_CHANNELS], unsi
     }
 }
 
+//Otsu
+int otsu(unsigned char input_image[BMP_WIDTH][BMP_HEIGTH], int xs, int ys){
+    int N = THRESH_AREA * THRESH_AREA;
+    double var_max = 0, sum = 0, sumB = 0, q1 = 0, q2 = 0, u1 = 0, u2 = 0, rhob = 0;
+    int max_int = 255; int thresh = 0;
+    int hist[256] = {0};
+    for (int x = xs; x < xs+THRESH_AREA; x++){
+        for (int y = ys; y < ys+THRESH_AREA; y++){
+            hist[input_image[x][y]]++;
+        }
+    }
+    for (int i = 0; i <= max_int; i++){
+        sum += i*hist[i];
+    }
+    for (int t = 0; t <= max_int; t++){
+        q1 += hist[t];
+        if (q1 == 0) continue;
+        q2 = N-q1;
+
+        sumB += t*hist[t];
+        u1 = sumB/q1;
+        u2 = (sum - sumB)/q2;
+
+        rhob = q1*q2*pow(u1 - u2, 2);
+
+        if (rhob > var_max){
+            thresh = t;
+            var_max = rhob;
+        }
+    }
+    return thresh;
+}
+/*int otsu(unsigned char input_image[BMP_WIDTH][BMP_HEIGTH]){
+    int N = BMP_HEIGTH * BMP_WIDTH;
+    double var_max = 0, sum = 0, sumB = 0, q1 = 0, q2 = 0, u1 = 0, u2 = 0, rhob = 0;
+    int max_int = 255; int thresh = 0;
+    int hist[256] = {0};
+    for (int x = 0; x < BMP_WIDTH; x++){
+        for (int y = 0; y < BMP_HEIGTH; y++){
+            hist[input_image[x][y]]++;
+        }
+    }
+    for (int i = 0; i <= max_int; i++){
+        sum += i*hist[i];
+    }
+    for (int t = 0; t <= max_int; t++){
+        q1 += hist[t];
+        if (q1 == 0) continue;
+        q2 = N-q1;
+
+        sumB += t*hist[t];
+        u1 = sumB/q1;
+        u2 = (sum - sumB)/q2;
+
+        rhob = q1*q2*pow(u1 - u2, 2);
+
+        if (rhob > var_max){
+            thresh = t;
+            var_max = rhob;
+        }
+    }
+    return thresh*0.9;
+}*/
+
 //Function to converts pixels of an image to gray
-void toBinary(unsigned char input_image[BMP_WIDTH][BMP_HEIGTH], unsigned char output_image[BMP_WIDTH][BMP_HEIGTH], int thresh){
+void toBinary(unsigned char input_image[BMP_WIDTH][BMP_HEIGTH], unsigned char output_image[BMP_WIDTH][BMP_HEIGTH]){
+    int thresh;
+    for (int x = 0; x < BMP_WIDTH; x += THRESH_AREA)
+    {
+        for (int y = 0; y < BMP_HEIGTH; y += THRESH_AREA)
+        {
+            thresh = otsu(input_image, x, y);
+            if (thresh < 75) thresh = 75;
+            for (int xx = x; xx < x+THRESH_AREA; xx++){
+                for (int yy = y; yy < y+THRESH_AREA; yy++){
+                    if (input_image[xx][yy] <= thresh)
+                    {
+                        output_image[xx][yy] = 0;
+                    } else{
+                        output_image[xx][yy] = 255;
+                    }
+                }
+            }
+        }
+    }
+}
+/*void toBinary(unsigned char input_image[BMP_WIDTH][BMP_HEIGTH], unsigned char output_image[BMP_WIDTH][BMP_HEIGTH], int thresh){
     for (int x = 0; x < BMP_WIDTH; x++)
     {
         for (int y = 0; y < BMP_HEIGTH; y++)
@@ -480,7 +565,7 @@ void toBinary(unsigned char input_image[BMP_WIDTH][BMP_HEIGTH], unsigned char ou
             }
         }
     }
-}
+}*/
 
 double eucDist(int x0, int y0, int x1, int y1){
     double distance;
@@ -488,14 +573,14 @@ double eucDist(int x0, int y0, int x1, int y1){
 	return distance;
 }
 
-void watershed(unsigned char input_image[BMP_WIDTH][BMP_HEIGTH], double output_image[BMP_WIDTH][BMP_HEIGTH]){
-    int zero_loc[2500][2] = {0}, count = 0; double lowEucDist = 1000, dist = 0; 
+void watershed(unsigned char input_image[BMP_WIDTH][BMP_HEIGTH], unsigned char output_image[BMP_WIDTH][BMP_HEIGTH]){
+    int zero_loc[2500][2] = {0}, count = 0; double lowEucDist = 1000, dist = 0;
     for (int x = 0; x < BMP_WIDTH; x++){
         for (int y = 0; y < BMP_HEIGTH; y++){
             if (input_image[x][y] > 120){
                 count = 0;
-                for (int x2 = x - 25; x2 < x + 26; x2++){
-                    for (int y2 = y - 25; y2 < y + 26; y2++){
+                for (int x2 = x - 10; x2 < x + 11; x2++){
+                    for (int y2 = y - 10; y2 < y + 11; y2++){
                         if (input_image[x2][y2] < 120) {
                             zero_loc[count][0] = x2;
                             zero_loc[count][1] = y2;
@@ -514,22 +599,24 @@ void watershed(unsigned char input_image[BMP_WIDTH][BMP_HEIGTH], double output_i
             }
             //printf("x: %d y: %d count: %d\n", x, y, count);
         }
-        if (x % 10 == 0) printf("x: %d \n", x);
+        if (x % 95 == 0) printf("%d\45 \n", x/95*10);
     }
 }
 
-void localMax(double input_image[BMP_WIDTH][BMP_HEIGTH], unsigned int coord_out[100000][2]){
-    int count = 0; int smallest = 0;
+void localMax(unsigned char input_image[BMP_WIDTH][BMP_HEIGTH], unsigned int coord_out[10000][2]){
+    int count = 0; int smallest = 0; double mini = 160; 
     for (int x = 1; x < BMP_WIDTH-1; x++){
         for (int y = 1; y < BMP_HEIGTH-1; y++){
             if (input_image[x][y] < 250){
                 smallest = 0;
                 for (int xx = x - 4; xx < x + 5; xx++){
                     for (int yy = y - 4; yy < y + 5; yy++){
-                        if( input_image[xx][yy] < input_image[x][y]) smallest = 1;
+                        if( input_image[xx][yy] < input_image[x][y] && (255 -input_image[xx][yy])/8 <= 10.5) smallest = 1;
                     }
                 }
-                if (smallest == 0){
+                if (smallest == 0 && (255 -input_image[x][y])/8 > 3 && (255 -input_image[x][y])/8 <= 10.5){
+                    if ((255 -input_image[x][y])/8 < mini) mini = (255 -input_image[x][y])/8;
+                    //printf("Euc: %f \n", (255 -input_image[x][y])/8);
                     coord_out[count][0] = x;
                     coord_out[count][1] = y;
                     count++;
@@ -537,45 +624,15 @@ void localMax(double input_image[BMP_WIDTH][BMP_HEIGTH], unsigned int coord_out[
             }
         }
     }
+    //printf("Euc: %f \n", mini);
 }
 
-void makeMask(unsigned int coord_in[100000][2], unsigned char output_image[BMP_WIDTH][BMP_HEIGTH]){
-    for (int i = 0; i < 100000; i++)
+void makeMask(unsigned int coord_in[10000][2], unsigned char output_image[BMP_WIDTH][BMP_HEIGTH]){
+    for (int i = 0; i < 10000; i++)
     {
         if (coord_in[i][0] != 0 && coord_in[i][1] != 0) output_image[coord_in[i][0]][coord_in[i][1]] = 255;
     }
     
-}
-
-//Function to converts pixels of an image to gray
-int erosion(unsigned char input_image[BMP_WIDTH][BMP_HEIGTH], unsigned char output_image[BMP_WIDTH][BMP_HEIGTH]){
-    int check = 0; int found = 0; int area[7][7] = {0}; int weight[7][7] = {0}; int sum = 0; unsigned char temp[BMP_WIDTH][BMP_HEIGTH];
-    for (int x = 0; x < BMP_WIDTH; x++)
-    {
-        for (int y = 0; y < BMP_HEIGTH; y++)
-        {
-            if (input_image[x][y] > 120) {
-                if (input_image[x][y+1] > 120 && input_image[x][y-1] > 120 && input_image[x+1][y] > 120 && input_image[x-1][y] > 120){
-                    temp[x][y] = 0;
-                } else {
-                    temp[x][y] = 255;
-                }
-            } else {
-                temp[x][y] = 0;
-            }
-        }
-    }
-    for (int x = 0; x < BMP_WIDTH; x++){
-        for (int y = 0; y < BMP_HEIGTH; y++){
-            if (input_image[x][y] > 120 && temp[x][y] > 120){
-                output_image[x][y] = 0;
-                check = 1;
-            } else {
-                output_image[x][y] = input_image[x][y];
-            }
-        }
-    }
-    return check;
 }
 
 //Function to converts pixels of an image to gray
